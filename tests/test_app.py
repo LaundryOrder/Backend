@@ -2,6 +2,7 @@
 # Author: Epix
 
 import unittest
+import uuid
 from random import random
 
 import requests
@@ -26,7 +27,13 @@ class TestApp(unittest.TestCase):
         # register correct data
         r = requests.post(token_url, json={'username': self.username, 'password': self.password})
         self.assertEqual(r.status_code, 200)
-        self.assertIsInstance(r.json().get('token', None), str)
+        token_str = r.json().get('token', None)
+        self.assertIsInstance(token_str, str)
+
+        # logout with token
+        logout_url = base_url + '/revoke'
+        r = requests.get(logout_url, headers={'Authorization': 'Token {0}'.format(token_str)})
+        self.assertEqual(r.status_code, 200)
 
         # login wrong password
         r = requests.post(token_url, json={'username': self.username, 'password': 'test_wrong' + str(random())})
@@ -35,4 +42,25 @@ class TestApp(unittest.TestCase):
         # login correct data
         r = requests.post(token_url, json={'username': self.username, 'password': self.password})
         self.assertEqual(r.status_code, 200)
-        self.assertIsInstance(r.json().get('token', None), str)
+        token_str = r.json().get('token', None)
+        self.assertIsInstance(token_str, str)
+
+        # logout with no header
+        r = requests.get(logout_url)
+        self.assertEqual(r.status_code, 401)
+
+        # logout with wrong auth method
+        r = requests.get(logout_url, headers={'Authorization': 'Bearer {0}'.format(token_str)})
+        self.assertEqual(r.status_code, 401)
+
+        # logout with wrong token
+        r = requests.get(logout_url, headers={'Authorization': 'Token {0}'.format(uuid.uuid4().hex)})
+        self.assertEqual(r.status_code, 401)
+
+        # logout with correct token
+        r = requests.get(logout_url, headers={'Authorization': 'Token {0}'.format(token_str)})
+        self.assertEquals(r.status_code, 200)
+
+        # logout with revoked token
+        r = requests.get(logout_url, headers={'Authorization': 'Token {0}'.format(token_str)})
+        self.assertEqual(r.status_code, 401)
