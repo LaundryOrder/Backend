@@ -55,30 +55,20 @@ def index():
     return "233"
 
 
-@app.route('/login', methods=['POST'])
+@app.route('/token', methods=['POST'])
 @check_login
 def login():
     username = request.json.get('username')
     password = request.json.get('password')
     user = User.query.filter_by(username=username).first()
-    if not user:
-        return Response(error_json_str('username not existed'), 400)
-    if not user.verify_password(password):
-        return Response(error_json_str('wrong password'), 400)
-    return jsonify({'token': 'bgm38'})
-
-
-@app.route('/user/new', methods=['POST'])
-@check_login
-def register():
-    username = request.json.get('username')
-    password = request.json.get('password')
-    if User.query.filter_by(username=username).first() is not None:
-        return Response(error_json_str('username existed'), 400)
-    user = User(username=username)
-    user.hash_password(password)
-    db.session.add(user)
-    db.session.commit()
+    if user:  # user exist, login
+        if not user.verify_password(password):
+            return Response(error_json_str('wrong password'), 400)
+    else:  # user not exist, register
+        user = User(username=username)
+        user.hash_password(password)
+        db.session.add(user)
+        db.session.commit()
     return jsonify({'token': 'bgm38'})
 
 
