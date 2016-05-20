@@ -148,7 +148,7 @@ class Order(db.Model):
     order_token = db.Column(db.String(128), index=True)
     status = db.Column(db.Integer)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    door = db.relationship('Door', backref='order', uselist=True)
+    door = db.relationship('Door', backref='order', uselist=False)
 
 
 class Door(db.Model):
@@ -166,16 +166,17 @@ class Door(db.Model):
 @need_token
 @check_json
 def make_order(token):
-    door = request.json.get('door')
-    if door:
-        # todo add door service
-        pass
-
     user = User.query.filter_by(id=token2user_id(token)).one()
     order = Order(user=user, order_time=get_current_timestamp(), status=3)
     db.session.add(order)
     db.session.commit()
     order_id = order.id
+    door = request.json.get('door')
+    if door:
+        door = Door(order_time=order.order_time, phone=door.get('phone'), address=door.get('address'), order=order)
+        db.session.add(door)
+        db.session.commit()
+        pass
     while True:
         order_without_start_before = Order.query.filter(Order.id < order_id).filter(Order.start.is_(None)).first()
         if order_without_start_before is None:
@@ -187,7 +188,94 @@ def make_order(token):
     order.end = avail_time + WASH_TIME
     order.order_token = uuid.uuid4().hex
     order_token_redis.setex(order.order_token, int((order.end - get_current_timestamp()) / 1000) + 1 * 60, order.id)
-    return jsonify({'success': 1})
+    return jsonify(order2json(order))
+
+
+@app.route('/orders', methods=['GET'])
+@need_token
+def get_orders(token):
+    user = User.query.filter_by(id=token2user_id(token)).one()
+    refresh_status(user)
+    orders = Order.query.filter_by(user=user).order_by(Order.order_time).all()
+    result_orders = []
+    for order in orders:
+        result_orders.append(order2json(order))
+    return jsonify({'orders': result_orders})
+
+
+def refresh_status(user):
+    orders = Order.query.filter_by(user=user, status=3).all()
+    current_time = get_current_timestamp()
+    for order in orders:
+        if order.end < current_time:
+            order.status = 1
+    db.session.commit()
+
+
+@app.route('/order/<int:order_id>', methods=['GET', 'DELETE', 'PUT'])
+@need_token
+def order(token, order_id):
+    user = User.query.filter_by(id=token2user_id(token)).one()
+    order = Order.query.filter_by(id=order_id).one()
+    if order.user != user:
+        return make_response(error_json_str('order not belong to you'), 403)
+    else:
+        if request.method == 'GET':
+            return jsonify(order2json(order))
+        elif request.method == 'DELETE':
+            if order.status == 3:
+                order.status = 1
+                db.session.commit()
+                return jsonify({'success': 1})
+            else:
+                return make_response(error_json_str('order can not be canceled now'), 400)
+        elif request.method == 'PUT':
+            order_json = request.json
+            if order_json is None:
+                return make_response(error_json_str('empty body'), 400)
+            else:
+                new_door = order_json.get('door')
+                door = order.door
+                if not door:
+                    door = Door()
+                    door.order = order
+                if new_door:
+                    new_address = new_door.get('address')
+                    if new_address:
+                        door.address = new_address
+                        db.session.commit()
+                    new_phone = new_door.get('phone')
+                    if new_phone:
+                        door.phone = new_phone
+                        db.session.commit()
+                    return jsonify({'success': 1})
+                else:
+                    return make_response(error_json_str('nothing modified'), 400)
+        else:
+            pass
+
+
+def order2json(order):
+    order_json = {
+        'order_id': order.id,
+        'start': order.start,
+        'end': order.end,
+        'machine': order.machine,
+        'order_time': order.order_time,
+        'order_token': order.order_token,
+        'status': order.status
+    }
+    door = order.door
+    if door:
+        door_json = {
+            'start': door.start,
+            'end': door.end,
+            'order_time': door.order_time,
+            'phone': door.phone,
+            'address': door.address
+        }
+        order_json['door'] = door_json
+    return order_json
 
 
 def token2user_id(token):
