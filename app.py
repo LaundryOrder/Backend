@@ -100,7 +100,7 @@ def index():
 def login():
     username = request.json.get('username')
     password = request.json.get('password')
-    user = User.query.filter_by(username=username).one()
+    user = User.query.filter_by(username=username).one_or_none()
     if user:  # user exist, login
         if not user.verify_password(password):
             return make_response(error_json_str('wrong password'), 400)
@@ -167,13 +167,16 @@ class Door(db.Model):
 @check_json
 def make_order(token):
     user = User.query.filter_by(id=token2user_id(token)).one()
+    d = {i: get_avail_machine(i) for i in range(MACHINE_COUNT)}
+    avail_machine, avail_time = min(d.items(), key=lambda x: x[1])
     order = Order(user=user, order_time=get_current_timestamp(), status=3)
     db.session.add(order)
     db.session.commit()
     order_id = order.id
     door = request.json.get('door')
     if door:
-        door = Door(order_time=order.order_time, phone=door.get('phone'), address=door.get('address'), order=order)
+        door = Door(start=avail_time, end=avail_time + WASH_TIME, order_time=order.order_time, phone=door.get('phone'),
+                    address=door.get('address'), order=order)
         db.session.add(door)
         db.session.commit()
         pass
@@ -181,8 +184,6 @@ def make_order(token):
         order_without_start_before = Order.query.filter(Order.id < order_id).filter(Order.start.is_(None)).first()
         if order_without_start_before is None:
             break
-    d = {i: get_avail_machine(i) for i in range(MACHINE_COUNT)}
-    avail_machine, avail_time = min(d.items(), key=lambda x: x[1])
     order.machine = avail_machine
     order.start = avail_time
     order.end = avail_time + WASH_TIME
@@ -237,7 +238,8 @@ def order(token, order_id):
                 new_door = order_json.get('door')
                 door = order.door
                 if not door:
-                    door = Door()
+                    current_time = get_current_timestamp()
+                    door = Door(start=current_time, end=current_time + WASH_TIME, order_time=current_time)
                     door.order = order
                 if new_door:
                     new_address = new_door.get('address')
