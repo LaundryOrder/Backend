@@ -65,13 +65,16 @@ def need_token(f):
     def w(*args, **kwargs):
         http_auth = request.headers.get('Authorization', None)
         if http_auth:
-            auth_type, auth_token = http_auth.split(None, 1)
-            if auth_type == "Token":
-                if user_token_redis.exists(auth_token):
-                    return f(auth_token, *args, **kwargs)
-                else:  # non exist token
-                    return make_response(error_json_str('token not exist'), 401)
-            else:  # not start with Token
+            try:
+                auth_type, auth_token = http_auth.split(None, 1)
+                if auth_type == "Token":
+                    if user_token_redis.exists(auth_token):
+                        return f(auth_token, *args, **kwargs)
+                    else:  # non exist token
+                        return make_response(error_json_str('token not exist'), 401)
+                else:  # not start with Token
+                    return make_response(error_json_str('wrong auth token method'), 401)
+            except ValueError:
                 return make_response(error_json_str('wrong auth token method'), 401)
         else:  # no auth
             return make_response(error_json_str('need auth token'), 401)
