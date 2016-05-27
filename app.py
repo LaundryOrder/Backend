@@ -21,7 +21,7 @@ db = SQLAlchemy(app)
 
 LOGIN_TOKEN_EXPIRE_TIME = 24 * 60 * 60 * 1000
 MACHINE_COUNT = 3
-WASH_TIME = 2 * 60 * 1000
+WASH_TIME = 30 * 60 * 1000
 REDIS_ADDRESS = 'localhost'
 
 
@@ -197,7 +197,7 @@ def make_order(token):
 def get_orders(token):
     user = User.query.filter_by(id=token2user_id(token)).one()
     refresh_status(user)
-    orders = Order.query.filter_by(user=user).order_by(Order.order_time).all()
+    orders = Order.query.filter_by(user=user).order_by(Order.order_time.desc()).all()
     result_orders = []
     for order in orders:
         result_orders.append(order2json(order))
@@ -250,7 +250,7 @@ def order(token, order_id):
                     if new_phone:
                         door.phone = new_phone
                         db.session.commit()
-                    return jsonify({'success': 1})
+                    return jsonify(order2json(order))
                 else:
                     return make_response(error_json_str('nothing modified'), 400)
         else:
