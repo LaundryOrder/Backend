@@ -1,0 +1,5 @@
+sqlalchemy
+redis
+passlib
+flask
+flask-sqlalchemy
