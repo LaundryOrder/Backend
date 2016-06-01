@@ -187,6 +187,7 @@ def make_order(token):
         order_without_start_before = Order.query.filter(Order.id < order_id).filter(Order.start.is_(None)).first()
         if order_without_start_before is None:
             break
+        time.sleep(0.05)
     order.machine = avail_machine
     order.start = avail_time
     order.end = avail_time + WASH_TIME
