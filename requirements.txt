@@ -3,3 +3,4 @@ redis
 passlib
 flask
 flask-sqlalchemy
+flask-cors

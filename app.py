@@ -6,12 +6,14 @@ from functools import wraps
 
 import time
 from flask import Flask, request, jsonify, Response, abort, make_response
+from flask.ext.cors import CORS
 from flask.ext.sqlalchemy import SQLAlchemy
 from passlib.apps import custom_app_context as pwd_context
 from redis import StrictRedis
 from sqlalchemy import desc
 
 app = Flask(__name__)
+CORS(app)
 app.config['SECRET_KEY'] = 'the quick brown fox jumps over the lazy dog'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
 app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
