@@ -11,6 +11,7 @@ from flask.ext.sqlalchemy import SQLAlchemy
 from passlib.apps import custom_app_context as pwd_context
 from redis import StrictRedis
 from sqlalchemy import desc
+from werkzeug.contrib.profiler import ProfilerMiddleware
 
 app = Flask(__name__)
 CORS(app)
@@ -303,4 +304,6 @@ if __name__ == '__main__':
         db.create_all()
     user_token_redis = StrictRedis(host=REDIS_ADDRESS, port=6379, db=0)
     order_token_redis = StrictRedis(host=REDIS_ADDRESS, port=6379, db=1)
+    app.config['PROFILE'] = True
+    app.wsgi_app = ProfilerMiddleware(app.wsgi_app, restrictions=[30])
     app.run(host="0.0.0.0", port=8233, debug=True)
