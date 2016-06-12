@@ -1,17 +1,17 @@
 # -*- encoding: utf-8 -*-
 # Author: Epix
 import os
+import time
 import uuid
 from functools import wraps
 
-import time
-from flask import Flask, request, jsonify, Response, abort, make_response
+from flask import Flask, request, jsonify, make_response
 from flask.ext.cors import CORS
-from flask.ext.sqlalchemy import SQLAlchemy
-from passlib.apps import custom_app_context as pwd_context
 from redis import StrictRedis
 from sqlalchemy import desc
 from werkzeug.contrib.profiler import ProfilerMiddleware
+
+from models import db, User, Order, Door
 
 app = Flask(__name__)
 CORS(app)
@@ -20,29 +20,10 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
 app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 
-db = SQLAlchemy(app)
-
 LOGIN_TOKEN_EXPIRE_TIME = 24 * 60 * 60 * 1000
 MACHINE_COUNT = 3
 WASH_TIME = 30 * 60 * 1000
 REDIS_ADDRESS = 'localhost'
-
-
-class User(db.Model):
-    __tablename__ = 'users'
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(32), index=True)
-    password_hash = db.Column(db.String(128))
-    orders = db.relationship('Order', backref='user', uselist=True)
-
-    def hash_password(self, password):
-        self.password_hash = pwd_context.encrypt(password)
-
-    def verify_password(self, password):
-        return pwd_context.verify(password, self.password_hash)
-
-    def generate_auth_token(self):
-        pass
 
 
 def error_json_str(msg):
@@ -142,30 +123,6 @@ def available(token):
     d = {i: get_avail_machine(i) for i in range(MACHINE_COUNT)}
     avail_time = min(d.values())
     return jsonify({'time': avail_time})
-
-
-class Order(db.Model):
-    __tablename__ = 'orders'
-    id = db.Column(db.Integer, primary_key=True)
-    start = db.Column(db.Integer)
-    end = db.Column(db.Integer)
-    machine = db.Column(db.Integer)
-    order_time = db.Column(db.Integer)
-    order_token = db.Column(db.String(128), index=True)
-    status = db.Column(db.Integer)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    door = db.relationship('Door', backref='order', uselist=False)
-
-
-class Door(db.Model):
-    __tablename__ = 'doors'
-    id = db.Column(db.Integer, primary_key=True)
-    start = db.Column(db.Integer)
-    end = db.Column(db.Integer)
-    order_time = db.Column(db.Integer)
-    phone = db.Column(db.String(32))
-    address = db.Column(db.String(128))
-    order_id = db.Column(db.Integer, db.ForeignKey('orders.id'))
 
 
 @app.route('/order', methods=['POST'])
@@ -300,6 +257,7 @@ def get_current_timestamp():
 
 
 if __name__ == '__main__':
+    db.init_app(app)
     if not os.path.exists('db.sqlite'):
         db.create_all()
     user_token_redis = StrictRedis(host=REDIS_ADDRESS, port=6379, db=0)
