@@ -221,6 +221,25 @@ def order(token, order_id):
             pass
 
 
+@app.route('/complete', methods=['POST'])
+@check_json
+def complete():
+    token = request.json.get('token')
+    order_token = request.json.get('order_token')
+    if token == 'bgm38':
+        if order_token_redis.exists(order_token):
+            order_id = token2order_id(order_token)
+            order_token_redis.delete(order_token)
+            order = Order.query.filter_by(id=order_id).one()
+            order.status = 2
+            db.session.commit()
+            return jsonify({'success': 1})
+        else:
+            make_response(error_json_str('can not complete now'), 400)
+    else:
+        make_response(error_json_str('wrong token'), 403)
+
+
 def order2json(order):
     order_json = {
         'order_id': order.id,
