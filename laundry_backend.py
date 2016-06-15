@@ -6,7 +6,7 @@ import uuid
 from functools import wraps
 
 from flask import Flask, request, jsonify, make_response
-from flask.ext.cors import CORS
+from flask_cors import CORS
 from redis import StrictRedis
 from sqlalchemy import desc
 from werkzeug.contrib.profiler import ProfilerMiddleware
@@ -24,6 +24,8 @@ LOGIN_TOKEN_EXPIRE_TIME = 24 * 60 * 60 * 1000
 MACHINE_COUNT = 3
 WASH_TIME = 30 * 60 * 1000
 REDIS_ADDRESS = 'localhost'
+user_token_redis = StrictRedis(host=REDIS_ADDRESS, port=6379, db=0)
+order_token_redis = StrictRedis(host=REDIS_ADDRESS, port=6379, db=1)
 
 
 def error_json_str(msg):
@@ -279,8 +281,6 @@ if __name__ == '__main__':
     db.init_app(app)
     if not os.path.exists('db.sqlite'):
         db.create_all()
-    user_token_redis = StrictRedis(host=REDIS_ADDRESS, port=6379, db=0)
-    order_token_redis = StrictRedis(host=REDIS_ADDRESS, port=6379, db=1)
     app.config['PROFILE'] = True
     app.wsgi_app = ProfilerMiddleware(app.wsgi_app, restrictions=[30])
     app.run(host="0.0.0.0", port=8233, debug=True)

@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 # Author: Epix
-from flask.ext.sqlalchemy import SQLAlchemy
+from flask_sqlalchemy import SQLAlchemy
 from passlib.apps import custom_app_context
 
 db = SQLAlchemy()
