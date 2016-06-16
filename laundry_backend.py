@@ -237,9 +237,9 @@ def complete():
             db.session.commit()
             return jsonify({'success': 1})
         else:
-            make_response(error_json_str('can not complete now'), 400)
+            return make_response(error_json_str('can not complete now'), 400)
     else:
-        make_response(error_json_str('wrong token'), 403)
+        return make_response(error_json_str('wrong token'), 403)
 
 
 def order2json(order):
